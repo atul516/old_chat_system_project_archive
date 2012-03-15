@@ -1,0 +1,425 @@
+var nik = getnick();
+var _nick = nik;
+var connect = 0;
+var windowfocus = true;
+var texttype = new Array();
+var typing = null;
+var textfocus = new Array();
+var userinfo = new Array();
+var about = new Array();
+var things_to_talk = new Array();
+var cache = new Array();
+var ajaxobj = create_ajax_object(); 
+var user = null;
+var conn_lost = null;
+var nullstr = null;
+var done = false;
+window.onload = flow_control("r",null,null);
+/*window.onunload = function() {
+  setTimeout(function(){Stall();},1);
+  Stuff();
+};
+function Stall() {
+   var obj=false;
+if(window.XMLHttpRequest) {
+obj=new XMLHttpRequest;
+}
+else if(window.ActiveXObject)
+{
+obj=new ActiveXObject("Microsoft.XMLHTTP");
+}
+   obj.open("GET", '/chat/logout?nick='+_nick, true);
+   obj.send(null);
+}
+function Stuff() {
+  var b = 0, c = 0;
+  while (b++ < 6000000000000) { c++; }
+  done = true;
+}  */
+window.onbeforeunload = function() {
+   var obj=false;
+if(window.XMLHttpRequest) {
+obj=new XMLHttpRequest;
+}
+else if(window.ActiveXObject)
+{
+obj=new ActiveXObject("Microsoft.XMLHTTP");
+}
+   obj.onreadystatechange= function() { if (obj.readyState!=4) return false; }
+   obj.open("GET", 'http://127.0.0.1/chat/logout?nick='+_nick, false);
+   obj.send(null);
+}
+window.onblur=function() {
+windowfocus = false;
+}
+window.onfocus=function() {
+windowfocus = true;
+}
+function ontextareablur(elem) {
+textfocus[elem + "2"] = false ;
+}
+function ontextareafocus(elem) {
+textfocus[elem + "2"] = true ;
+document.getElementById("handleTop" + elem).style.backgroundColor= "#82a9d9";
+document.title = "Welcome";
+}
+function flow_control(flag,to_user,str) {
+if(flag == 'r')
+remain();
+if(flag == 'l')
+lost_conn();
+if(flag == 's')
+execute(to_user,str);
+if(flag == 't')
+started(to_user);
+if(flag == 'd')
+stopped(to_user);
+}
+function ping() {
+var pingobj = create_ajax_object();
+var pingurl = "ping";
+pingobj.open("POST",pingurl,true);
+pingobj.setRequestHeader('Content-Type','application/x-www-form-urlencoded',true);
+pingobj.onreadystatechange = function() {
+if(pingobj.readyState == 4 && pingobj.status == 200) {
+document.body.removeChild(document.getElementById("conn_los"));
+flow_control("r",null,null);
+}
+else if(pingobj.readyState == 4 && pingobj.status == 400) {
+document.getElementById("conn_los").innerHTML = '<span style="font-size:12px;font-weight: bold;">&nbsp oops!You have been logged out</span><br><span style="font-size:12px;">Please login again</span><br><button type="button" onclick="window.location("http://127.0.0.1");">HomePage</button>';
+}
+};
+var pingparams = getparams(1,nik);
+pingobj.send(pingparams);
+}
+function lost_conn() {
+connect = 0;
+var responseText = "<div id=\"conn_los\" class=\"conn_los\"><\/div>";
+create_element(responseText);
+document.getElementById("conn_los").innerHTML = '<span style="font-size:12px;font-weight: bold;">&nbsp&nbsp Network Interruption</span><br><span style="font-size:12px;">We are having trouble connecting to the network.Please check your Internet Connection</span><br><button type="button" onclick="ping();">Reconnect</button>';
+document.getElementById("conn_los").style.display = "block";
+}
+function user_info(user1)
+{
+user = user1.target.value;
+if(user.length != 0) {
+document.getElementById("info").style.left = parseInt(document.getElementById("on").style.left)+140;
+document.getElementById("info").style.top = user1.y;
+document.getElementById("info").style.display = "block";
+document.getElementById("info").innerHTML ='<span style="font-size:12px;">&nbsp&nbsp '+sanitize(user)+'</span><br>&nbsp&nbsp<span style="font-size:8px;">&nbsp Retrieving Information....................</span>';
+if(userinfo[user] != true) {
+var infoobj = create_ajax_object();
+var infourl = "info";
+infoobj.open("POST",infourl,true);
+infoobj.setRequestHeader('Content-Type','application/x-www-form-urlencoded',true);
+infoobj.onreadystatechange = function() {
+if(infoobj.readyState == 4 && infoobj.status == 200) {
+var info = infoobj.responseXML.documentElement;
+var rabout = info.getElementsByTagName("about");
+var rthings_to_talk = info.getElementsByTagName("things_to_talk");
+about[user] = rabout.item(0).firstChild.data.toString();
+things_to_talk[user] = rthings_to_talk.item(0).firstChild.data.toString();
+document.getElementById("info").innerHTML =   '<span style="font-size:12px;">&nbsp&nbsp '+sanitize(user)+'<br>&nbsp&nbsp About:</span><span style="font-size:10px;">&nbsp '+ about[user] + '<br></span><span style="font-size:12px;">&nbsp&nbsp Things I want to talk:</span><span style="font-size:10px;">&nbsp '+things_to_talk[user] +'</span>';
+}
+};
+var infoparams = getparams(5,user);
+infoobj.send(infoparams);
+userinfo[user] = true;
+}
+else {
+document.getElementById("info").innerHTML =   '<span style="font-size:12px;">&nbsp&nbsp '+sanitize(user)+'<br>&nbsp&nbsp About:</span><span style="font-size:10px;">&nbsp '+ about[user] + '<br></span><span style="font-size:12px;">&nbsp&nbsp Things I want to talk:</span><span style="font-size:10px;">&nbsp '+things_to_talk[user] +'</span>';}
+}
+}
+function hide_user_info()
+{
+user = null;
+document.getElementById("info").style.display = "none";
+}
+function create_ajax_object()
+{
+var obj=false;
+if(window.XMLHttpRequest) {
+obj=new XMLHttpRequest;
+}
+else if(window.ActiveXObject)
+{
+obj=new ActiveXObject("Microsoft.XMLHTTP");
+}
+return obj;
+}
+function playsound(from_user) {
+document.getElementById("handleTop" +from_user).style.backgroundColor= "#FF9900";
+document.title = from_user + " says___|___|___|___|";
+}
+function create_element(Text) {
+if(document.body.insertAdjacentHTML)
+document.body.insertAdjacentHTML('beforeEnd',Text);
+else {
+var range = document.createRange ();
+var docFragmentToInsert = range.createContextualFragment (Text);
+document.getElementById('Sound').appendChild (docFragmentToInsert);
+}
+}
+function open_chat(from_user,messag)
+{
+if(!document.getElementById(from_user)) {
+var responseText ='<div class= \"chatbox \" id= \"' + from_user + ' \"><table style= \"text-align: left; table-layout:fixed \" border= \"0 \" cellpadding= \"0 \" cellspacing= \"0 \" > <tbody><tr> <td class= \"listLT \"><br> < \/td> <td class= \"listTM \"><div id= \"handleTop' + from_user + ' \"><div class= \"to_user\">'+from_user+'< \/div>< \/div><br>< \/td> <td class= \"listRT \"><br> < \/td>< \/tr><tr> <td style= \"height: 210px;background-color:#6067cd; \"><br> < \/td> <td style= \"height: 210px;width:170px;word-break: break-all;word-wrap: break-word; \"><div class= \"display \" id= \"' + from_user + '3 \"><textarea readonly=true class= \"showhistory \">< \/textarea>< \/div> < \/td> <td style= \"height: 210px;background-color:#6067cd; \"><br> < \/td>< \/tr><tr> <td style= \"height: 56px;background-color:#6067cd; \"><br> < \/td> <td style= \"height: 56px;width:184px;background-color:#6067cd; \"><div class= \"typearea \"><form id= \"' + from_user + '4 \"><textarea id=\"' + from_user + '2\" class= \"type \" onblur= \"ontextareablur(\'' + from_user + '\') \" onfocus= \"ontextareafocus(\'' + from_user + '\') \" onkeyup= \"handlekey(event,\'' + from_user + '\') \" onkeydown= \"handlekey(event,\'' + from_user + '\') \">< \/textarea>< \/form>< \/div> < \/td> <td style= \"height: 56px;background-color:#6067cd; \"><br> < \/td>< \/tr><tr> <td style= \"height: 19px;background-color:#8091d6;\"><br> < \/td> <td style= \"height: 19px;width:184px;background-color:#8091d6; \"><div class=\"status\" id=\"'+from_user+'status\"> < \/td> <td style= \"height: 19px;background-color:#8091d6; \"><br>< \/td>< \/tr> < \/tbody>< \/table>< \/div>';
+if (windowfocus == false)
+textfocus[from_user + "2"] = false ;
+else
+textfocus[from_user + "2"] = true;
+texttype[from_user + "2"] = false;
+create_element(responseText);
+document.getElementById(from_user + "status").innerHTML = "";
+if(messag) {
+var bold ='<span class="from">'+from_user + ':' + '</span><span class="frommessag">'+messag+'</span>' ;
+document.getElementById(from_user + "1").innerHTML = bold + "<br>" ;
+document.getElementById(from_user + "3").scrollTop = document.getElementById(from_user + "3").scrollHeight ;
+if (textfocus[from_user + "2"]  == false)
+playsound(from_user);
+}
+assign_actions(from_user);
+}
+else if(document.getElementById(from_user).style.display == 'none')
+document.getElementById(from_user).style.display = 'block';
+}
+function remain()
+{
+var params = "";
+try {
+if(ajaxobj.readyState==4 || ajaxobj.readyState==0) {
+var params2 = getparams(1);
+var execurl = "events";
+ajaxobj.open("POST",execurl);
+ajaxobj.setRequestHeader('Content-Type','application/x-www-form-urlencoded',true);
+ajaxobj.onreadystatechange =handleresponse;
+ajaxobj.send(params2);
+var dis = "l";
+conn_lost = setTimeout("flow_control('"+dis+"','"+nullstr+"','"+nullstr+"')",34000);
+}
+}
+catch(e) {
+displayError(e.toString());
+}
+}
+function getparams(tasks,to_user,messag)
+{
+if(tasks == 5)
+var params="connect="+encodeURIComponent(connect)+"&from_user="+encodeURIComponent(nik)+"&to_user="+encodeURIComponent(to_user);
+if(tasks == 4)
+var params="connect="+encodeURIComponent(connect)+"&tasks="+tasks+"&from_user="+encodeURIComponent(nik)+"&to_user="+encodeURIComponent(to_user)+"&typing=0";
+if(tasks == 3) 
+var params="connect="+encodeURIComponent(connect)+"&tasks="+tasks+"&from_user="+encodeURIComponent(nik)+"&to_user="+encodeURIComponent(to_user)+"&typing=1";
+if(tasks==2)
+var params="connect="+encodeURIComponent(connect)+"&from_user="+encodeURIComponent(nik)+"&to_user="+encodeURIComponent(to_user)+"&messag="+encodeURIComponent(messag);
+if(tasks==1)
+var params="connect="+encodeURIComponent(connect)+"&from_user="+encodeURIComponent(nik);
+return params;
+}
+function handleresponse() {
+if(ajaxobj.readyState==4 && ajaxobj.status==200) {
+var option = "<OPTION VALUE=";
+var messag ="";
+var online_people=document.online_users.online_people;
+var response = ajaxobj.responseXML.documentElement;
+var roption=response.getElementsByTagName("option"); 
+var rreply=response.getElementsByTagName("reply");
+var rtyping=response.getElementsByTagName("typing");
+if(roption != null) {
+for(var i=0; i<roption.length; i++) {
+var rid = roption.item(i).attributes.getNamedItem("id").value;
+var value = roption.item(i).firstChild.data.toString();
+if (rid == "on" && connect == 1) {
+online_people.options[online_people.length] = new Option(value,value,false,false);
+userinfo[value] = false;
+resume(value);
+}
+else if(rid == "off" && connect == 1) {
+for( var i=0; i < online_people.length; i++)
+if(online_people.options[i].text == value)
+online_people.options[i] = null;
+}
+else {
+online_people.options[online_people.length] = new Option(value,value,false,false);
+userinfo[value] = false;
+resume(value);
+}
+}
+}
+if(rtyping != null) {
+for(var i=0; i<rtyping.length; i++) {
+var typinguser=rtyping.item(i).attributes.getNamedItem("from_user").value;
+var status=rtyping.item(i).firstChild.data.toString();
+if(document.getElementById(typinguser + "status") && status == 1)
+document.getElementById(typinguser + "status").innerHTML = typinguser + " is typing...." ;
+else if(document.getElementById(typinguser + "status") && status == 0)
+document.getElementById(typinguser + "status").innerHTML = "";
+}
+}
+if(rreply != null) {
+for(var i=0; i<rreply.length; i++) {
+messag= messag + " " + rreply.item(i).firstChild.data.toString();
+var from_user=rreply.item(i).attributes.getNamedItem("from_user").value;
+if(i == rreply.length-1)
+if(document.getElementById(from_user + "status"))
+document.getElementById(from_user + "status").innerHTML = "";
+display(from_user,messag,0);
+}
+}
+connect = 1;
+clearTimeout(conn_lost);
+remain();
+}
+}
+function display(from_user,messag,error) {
+var bold = null;
+if(!document.getElementById(from_user + "1")) 
+open_chat(from_user,messag);
+else {
+if(error == 1)
+bold ='<span class="errormsg">'+messag+'</span>' ;
+else
+bold ='<span class="from">'+from_user + ':' + '</span><span class="frommessag">'+messag+'</span>' ;
+if(document.getElementById(from_user).style.display == 'none')
+document.getElementById(from_user).style.display = 'block';
+document.getElementById(from_user + "1").innerHTML =document.getElementById(from_user + "1").innerHTML + bold + "<br>" ;
+document.getElementById(from_user + "3").scrollTop = document.getElementById(from_user + "3").scrollHeight ;
+if (textfocus[from_user + "2"]  == false)
+playsound(from_user);
+}
+}
+function resume(to_user) {
+if(document.getElementById(to_user)) {
+if(document.getElementById(to_user + "2").disabled == true) {
+display(to_user,"user online!",1);
+document.getElementById(to_user + "2").disabled = false;
+}
+}
+}
+function execute(to_user,messag)
+{
+var textBox1 = document.getElementById(to_user+"1");
+var textBox3 = document.getElementById(to_user+"3");
+messag = trim(decodeURIComponent(messag));
+if(messag != "")
+{
+var params1 = getparams(2,to_user,messag);
+var ajaxobj1 = create_ajax_object(); 
+var sendurl = "send";
+ajaxobj1.open("POST",sendurl);
+ajaxobj1.setRequestHeader('Content-Type','application/x-www-form-urlencoded',true);
+ajaxobj1.onreadystatechange =function(){
+if(ajaxobj1.readyState==4 && ajaxobj1.status == 200) {
+var res = ajaxobj1.responseText;
+iferror(to_user,res,ajaxobj1.status);
+}
+if(ajaxobj1.readyState==4 && ajaxobj1.status == 400) {
+}
+};
+ajaxobj1.send(params1);
+var bold ='<span class="from">'+ 'You: ' + '</span><span class="frommessag">'+sanitize(messag)+'</span>' ;
+textBox1.innerHTML = textBox1.innerHTML + bold + "<br>" ;
+textBox3.scrollTop = textBox3.scrollHeight;
+}
+}
+function displayError(str)
+{
+alert(str);
+}
+function handlekey(e,to) {
+var to_user = to;
+var textBox2 = document.getElementById(to_user+"2");
+var textBox4 = document.getElementById(to_user+"4");
+e = (!e) ? window.event : e;
+var code;
+if (e.keyCode) 
+code = e.keyCode;
+else if (e.which) 
+code = e.which;
+if (e.type == "keyup" && code == 13)
+{
+textBox4.reset();
+}
+if (e.type == "keydown")
+{
+if(code == 13)
+{
+clearTimeout(typing);
+var str=encodeURIComponent(textBox2.value);
+textBox4.reset();
+texttype[to_user+"2"]= false ;
+flow_control("s",to_user,str);
+}
+else {
+clearTimeout(typing);
+if (texttype[to_user+"2"] == false) {
+texttype[to_user+"2"] = true ;
+flow_control("t",to_user,null);
+}
+var a = "d";
+typing = setTimeout("flow_control('"+a+"','"+to_user+"','"+nullstr+"')",3000);
+}
+}
+}
+function stopped(to) {
+var to_user = to;
+var params4 = getparams(4,to_user);
+var ajaxobj3 = create_ajax_object();
+var typeurl = "type";
+ajaxobj3.open("POST",typeurl);
+ajaxobj3.setRequestHeader('Content-Type','application/x-www-form-urlencoded',true);
+ajaxobj3.onreadystatechange =function(){};
+ajaxobj3.send(params4);
+texttype[to_user+"2"] = false;
+}
+function started(to) {
+var to_user = to;
+var params3 = getparams(3,to_user);
+var ajaxobj2 = create_ajax_object(); 
+var typeurl = "type";
+ajaxobj2.open("POST",typeurl);
+ajaxobj2.setRequestHeader('Content-Type','application/x-www-form-urlencoded',true);
+ajaxobj2.onreadystatechange =function(){};
+ajaxobj2.send(params3);
+}
+function iferror(to_user,resp,status) {
+if(status == 200 && resp == "user offline!") {
+display(to_user,"user offline!",1);
+document.getElementById(to_user + "2").disabled = true;
+}
+}
+function trim (str) {
+if (typeof str != "string") { return str; }
+var trimmedstr = str;
+var ch = trimmedstr.substring(0, 1);
+while (ch == " " || ch == "\n") { // Check for spaces at the beginning of the string
+trimmedstr = trimmedstr.substring(1, trimmedstr.length);
+ch = trimmedstr.substring(0, 1);
+}
+ch = trimmedstr.substring(trimmedstr.length-1, trimmedstr.length);
+while (ch == " " || ch == "\n") { // Check for spaces at the end of the string
+trimmedstr = trimmedstr.substring(0, trimmedstr.length-1);
+ch = trimmedstr.substring(trimmedstr.length-1, trimmedstr.length);
+}
+while (trimmedstr.indexOf("  ") != -1) {
+trimmedstr = trimmedstr.substring(0, trimmedstr.indexOf("  ")) +
+trimmedstr.substring(trimmedstr.indexOf("  ")+1, trimmedstr.length);
+}
+return trimmedstr;
+}
+function sanitize(str)
+{
+        var sanitizedstr='';
+        var a=0;
+        for (i=0; i<str.length; i++)
+        {
+            if (a==3)
+            {
+                sanitizedstr+='\r';
+                a=0;
+            } 
+            sanitizedstr+=("&#"+str.charCodeAt(i)+";");
+            if (str.charCodeAt(i)==32) a+=1;
+        }
+return sanitizedstr;
+}
